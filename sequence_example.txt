@@ -1,0 +1,14 @@
+>CGTTGA
+CGTTGA
+>CGTTGA folded
+CG
+TT
+G
+A
+>CGTTGA lowercase
+cgttga
+>ACGT
+ACGT
+>Empty
+>A
+A
