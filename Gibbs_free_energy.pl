@@ -3,32 +3,18 @@ use strict;
 use warnings;
 
 =head
+M. A.
 This program reads DNA sequences in FASTA format.
 Calculates the free energy of duplex formation for the 
 given sequence and its complementary sequence.
 It uses the SantaLuca algorithm.
 =cut
 
-my %parameters = (
-    'terminal' => { 
-        'A' => 1.03, 
-        'T' => 1.03, 
-        'G' => 0.98, 
-        'C' => 0.98 
-    },
-    'pairwise' => {
-        'AA' => -1.00,
-        'AT' => -0.88, 
-        'TA' => -0.58, 
-        'CA' => -1.45,
-        'TG' => -1.45,
-        'GT' => -1.44, 
-        'GA' => -1.30,
-        'CG' => -2.17,
-        'GC' => -2.24,
-        'GG' => -1.84
-    }
-);
+my $parameters_ref;
+
+my %parameters;
+
+$parameters_ref = \%parameters;
 
 sub pairEnergy($$){
     #The subroutine first tries to find the energy of the pair 
@@ -36,8 +22,8 @@ sub pairEnergy($$){
     #If it can't find the energy, it calculates the complement of the pair.
     #IT tries to find the energy of the complement pair.
 
-    my ($arg1, $parameters) = @_;
-    my $energy = $parameters->{'pairwise'}->{$arg1};
+    my ($arg1, $parameters_ref) = @_;
+    my $energy = $parameters_ref->{'pairwise'}->{$arg1};
 
     if (!defined $energy) {
         my %complement = ('A' => 'T', 'T' => 'A', 'C' => 'G', 'G' => 'C');
@@ -45,7 +31,7 @@ sub pairEnergy($$){
         my $complement_pair = $complement{substr($arg1, 1, 1)} . 
             $complement{substr($arg1, 0, 1)};
 
-        $energy = $parameters->{'pairwise'}->{$complement_pair};
+        $energy = $parameters_ref->{'pairwise'}->{$complement_pair};
     }
 
     return $energy;
@@ -55,14 +41,14 @@ sub calculateSantaLuciaScore($$) {
     # The subroutine iterates over the DNA sequence, extracting each pair 
     #of nucleotides and calculating their energy using the pairEnergy subroutine.
     # It adds the energy of each pair to a total energy counter.
-    my ($arg1, $parameters) = @_;
+    my ($arg1, $parameters_ref) = @_;
     my $total_free_energy = 0;
     for (my $i = 0; $i < length($arg1) - 1; $i++) {
         my $pair = substr($arg1, $i, 2);
-        $total_free_energy += pairEnergy($pair, $parameters);
+        $total_free_energy += pairEnergy($pair, $parameters_ref);
     }
-    $total_free_energy += $parameters->{'terminal'}->{substr($arg1, 0, 1)};
-    $total_free_energy += $parameters->{'terminal'}->{substr($arg1, -1 , 1)};
+    $total_free_energy += $parameters_ref->{'terminal'}->{substr($arg1, 0, 1)};
+    $total_free_energy += $parameters_ref->{'terminal'}->{substr($arg1, -1 , 1)};
     
     #If you want to use getTerminalNucleotideScore, uncomment down below
     #my $first_nucleotide_energy = getTerminalNucleotideScore(substr($arg1, 0 , 1), $parameters);
@@ -77,8 +63,8 @@ sub calculateSantaLuciaScore($$) {
 
 sub getTerminalNucleotideScore($;$) {
     # The subroutine returns given nucleotides energy
-    my ($nucleotide, $parameters) = @_;
-    my $nucleotide_free_energy = $parameters->{'terminal'}->{$nucleotide};
+    my ($nucleotide, $parameters_ref) = @_;
+    my $nucleotide_free_energy = $parameters_ref->{'terminal'}->{$nucleotide};
     return $nucleotide_free_energy;
 }
 
@@ -95,6 +81,28 @@ sub isSelfComplementarySequence($) {
     $reverse_complement =~ tr/ACGT/TGCA/;
     return $arg1 eq $reverse_complement ? 1 : 0;
 }
+
+%parameters = (
+    'terminal' => { 
+        'A' => 1.03, 
+        'T' => 1.03, 
+        'G' => 0.98, 
+        'C' => 0.98 
+    },
+    'pairwise' => {
+        'AA' => -1.00, #'TT' => -1.00,
+        'AT' => -0.88, #'TA' => -0.88,
+        'TA' => -0.58, #'AT' => -0.58,
+        'CA' => -1.45, #'GT' => -1.45,
+        'TG' => -1.45, #'AC' => -1.45,
+        'GT' => -1.44, #'CA' => -1.44,
+        'CT' => -1.28, #'GA' => -1.28,
+        'GA' => -1.30,
+        'CG' => -2.17, #'GC' => -2.17,
+        'GC' => -2.24,
+        'GG' => -1.84 #'CC' => -1.84,
+    }
+);
 
 foreach my $input (@ARGV) {
     if (-e $input) { #Checks if file exists
@@ -124,7 +132,7 @@ while (my $line = <>) {
         else {
             if ($sequence ne '') {
                 my $free_energy = calculateSantaLuciaScore(
-                    $sequence, \%parameters
+                    $sequence, $parameters_ref
                 );
                 printResults($header, $free_energy);
             }
@@ -143,7 +151,11 @@ while (my $line = <>) {
 }
 if ($sequence ne '') {
     my $free_energy = calculateSantaLuciaScore(
-        $sequence, \%parameters
+        $sequence, $parameters_ref
     );
     printResults($header, $free_energy);
+}
+
+foreach my $input (@ARGV){
+    close $input or die "Failed to close file: $!"; #$! - Contains error message
 }
